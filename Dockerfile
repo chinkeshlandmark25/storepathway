@@ -1,11 +1,13 @@
-# Use a lightweight Nginx image
-FROM nginx:alpine
+# Use Node.js for serving static files
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json ./
+RUN npm install
 
-# Copy static site content to Nginx's public directory
-COPY index.html /usr/share/nginx/html/index.html
+FROM node:20-alpine AS runner
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
-# Expose port 80
-EXPOSE 80
-
-# Start Nginx server
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+CMD ["npm", "start"]
