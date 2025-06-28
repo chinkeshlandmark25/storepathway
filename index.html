@@ -144,8 +144,31 @@
             document.getElementById('map-section').style.display = 'flex';
             document.getElementById('start-session-btn').style.display = 'none';
             drawMap();
+            setupCanvasDragSelection();
         } else showMsg('session-msg', 'Could not start session');
     }
+    let isDragging = false;
+    let dragStartCell = null;
+    let dragCurrentCell = null;
+
+    function getCellsOnLine(x0, y0, x1, y1) {
+        // Bresenham's line algorithm for grid cells
+        const cells = [];
+        let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+        let sx = x0 < x1 ? 1 : -1;
+        let sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        let x = x0, y = y0;
+        while (true) {
+            cells.push({cell_x: x, cell_y: y});
+            if (x === x1 && y === y1) break;
+            let e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 < dx) { err += dx; y += sy; }
+        }
+        return cells;
+    }
+
     function drawMap() {
         const canvas = document.getElementById('map-canvas');
         const ctx = canvas.getContext('2d');
@@ -183,15 +206,89 @@
                     highlightHeight
                 );
             }
+            // If dragging, preview the path
+            if (isDragging && dragStartCell && dragCurrentCell) {
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                const pathCells = getCellsOnLine(dragStartCell.cell_x, dragStartCell.cell_y, dragCurrentCell.cell_x, dragCurrentCell.cell_y);
+                for(const cell of pathCells) {
+                    ctx.fillRect(
+                        cell.cell_x*cellWidth + (cellWidth-highlightWidth)/2,
+                        cell.cell_y*cellHeight + (cellHeight-highlightHeight)/2,
+                        highlightWidth,
+                        highlightHeight
+                    );
+                }
+            }
         }
-        canvas.onclick = function(e) {
+    }
+    function addCellsToMarked(pathCells) {
+        for(const cell of pathCells) {
+            if (!markedCells.some(c=>c.cell_x===cell.cell_x&&c.cell_y===cell.cell_y)) {
+                markedCells.push(cell);
+            }
+        }
+    }
+    function setupCanvasDragSelection() {
+        const canvas = document.getElementById('map-canvas');
+        let lastCell = null;
+        let dragMoved = false;
+        let downCell = null;
+        canvas.onmousedown = function(e) {
             const rect = canvas.getBoundingClientRect();
             const x = Math.floor((e.clientX-rect.left)/cellWidth);
             const y = Math.floor((e.clientY-rect.top)/cellHeight);
-            if (!markedCells.some(c=>c.cell_x===x&&c.cell_y===y)) markedCells.push({cell_x:x,cell_y:y});
-            else markedCells = markedCells.filter(c=>!(c.cell_x===x&&c.cell_y===y));
+            isDragging = true;
+            dragStartCell = {cell_x: x, cell_y: y};
+            dragCurrentCell = {cell_x: x, cell_y: y};
+            lastCell = {cell_x: x, cell_y: y};
+            downCell = {cell_x: x, cell_y: y};
+            dragMoved = false;
             drawMap();
-        }
+        };
+        canvas.onmousemove = function(e) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX-rect.left)/cellWidth);
+            const y = Math.floor((e.clientY-rect.top)/cellHeight);
+            dragCurrentCell = {cell_x: x, cell_y: y};
+            if (lastCell && (lastCell.cell_x !== x || lastCell.cell_y !== y)) {
+                const pathCells = getCellsOnLine(lastCell.cell_x, lastCell.cell_y, x, y);
+                addCellsToMarked(pathCells);
+                lastCell = {cell_x: x, cell_y: y};
+                dragMoved = true;
+            }
+            drawMap();
+        };
+        canvas.onmouseup = function(e) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX-rect.left)/cellWidth);
+            const y = Math.floor((e.clientY-rect.top)/cellHeight);
+            if (!dragMoved && downCell && downCell.cell_x === x && downCell.cell_y === y) {
+                // Single tap/click: toggle cell
+                const idx = markedCells.findIndex(c=>c.cell_x===x&&c.cell_y===y);
+                if (idx === -1) markedCells.push({cell_x:x,cell_y:y});
+                else markedCells.splice(idx,1);
+            }
+            isDragging = false;
+            dragStartCell = null;
+            dragCurrentCell = null;
+            lastCell = null;
+            downCell = null;
+            dragMoved = false;
+            drawMap();
+        };
+        canvas.onmouseleave = function() {
+            if (isDragging) {
+                isDragging = false;
+                dragStartCell = null;
+                dragCurrentCell = null;
+                lastCell = null;
+                downCell = null;
+                dragMoved = false;
+                drawMap();
+            }
+        };
     }
     async function finishSession() {
         if (!sessionId || markedCells.length===0) return showMsg('session-msg','Mark at least one cell!');
