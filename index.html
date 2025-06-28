@@ -51,8 +51,25 @@
         button:hover {
             background-color: #764ba2;
         }
+        #map-section {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2rem;
+        }
+        #map-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
         #map-canvas {
             cursor: pointer;
+            width: 900px;
+            height: 600px;
+            max-width: 100%;
+            max-height: 80vh;
+            display: block;
         }
     </style>
 </head>
@@ -69,12 +86,13 @@
     </div>
     <div class="container" id="session-container" style="display:none; flex-direction:column; align-items:center;">
         <h2>Session</h2>
-        <button onclick="startSession()">Start New Session</button>
+        <button id="start-session-btn" onclick="startSession()">Start New Session</button>
         <div id="map-section" style="display:none;">
-            <p>Mark cells on the map below:</p>
-            <canvas id="map-canvas" width="600" height="400" style="border:1px solid #fff;"></canvas><br>
-            <button onclick="finishSession()">Finish Session</button>
-            <div id="session-msg"></div>
+            <div id="map-controls">
+                <button onclick="finishSession()">Finish Session</button>
+                <div id="session-msg"></div>
+            </div>
+            <canvas id="map-canvas" width="900" height="600" style="border:1px solid #fff;"></canvas>
         </div>
     </div>
     <script>
@@ -82,8 +100,8 @@
     let sessionId = null;
     let markedCells = [];
     let checkinTime = null;
-    const gridRows = 10, gridCols = 15;
-    const cellWidth = 40, cellHeight = 40;
+    const gridRows = 30, gridCols = 45;
+    const cellWidth = 20, cellHeight = 20;
 
     function showMsg(id, msg) {
         document.getElementById(id).innerText = msg;
@@ -123,7 +141,8 @@
         if (data.sessionId) {
             sessionId = data.sessionId;
             markedCells = [];
-            document.getElementById('map-section').style.display = 'block';
+            document.getElementById('map-section').style.display = 'flex';
+            document.getElementById('start-session-btn').style.display = 'none';
             drawMap();
         } else showMsg('session-msg', 'Could not start session');
     }
@@ -135,14 +154,35 @@
         img.onload = function() {
             ctx.clearRect(0,0,canvas.width,canvas.height);
             ctx.drawImage(img,0,0,canvas.width,canvas.height);
-            // Draw grid
-            ctx.strokeStyle = '#fff';
-            for(let i=0;i<=gridCols;i++) ctx.moveTo(i*cellWidth,0),ctx.lineTo(i*cellWidth,canvas.height);
-            for(let j=0;j<=gridRows;j++) ctx.moveTo(0,j*cellHeight),ctx.lineTo(canvas.width,j*cellHeight);
-            ctx.stroke();
-            // Highlight marked cells
-            ctx.fillStyle = 'rgba(255,0,0,0.4)';
-            for(const cell of markedCells) ctx.fillRect(cell.cell_x*cellWidth,cell.cell_y*cellHeight,cellWidth,cellHeight);
+            // Draw grid first (lighter color, under highlights)
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 1;
+            for(let i=0;i<=gridCols;i++) {
+                ctx.beginPath();
+                ctx.moveTo(i*cellWidth,0);
+                ctx.lineTo(i*cellWidth,canvas.height);
+                ctx.stroke();
+            }
+            for(let j=0;j<=gridRows;j++) {
+                ctx.beginPath();
+                ctx.moveTo(0,j*cellHeight);
+                ctx.lineTo(canvas.width,j*cellHeight);
+                ctx.stroke();
+            }
+            ctx.restore();
+            // Highlight marked cells (drawn after grid, covers grid inside cell)
+            ctx.fillStyle = 'rgba(118,75,162,0.7)'; // purple
+            const highlightWidth = cellWidth * 2/3;
+            const highlightHeight = cellHeight * 2/3;
+            for(const cell of markedCells) {
+                ctx.fillRect(
+                    cell.cell_x*cellWidth + (cellWidth-highlightWidth)/2,
+                    cell.cell_y*cellHeight + (cellHeight-highlightHeight)/2,
+                    highlightWidth,
+                    highlightHeight
+                );
+            }
         }
         canvas.onclick = function(e) {
             const rect = canvas.getBoundingClientRect();
@@ -168,6 +208,7 @@
         });
         showMsg('session-msg','Session saved!');
         document.getElementById('map-section').style.display = 'none';
+        document.getElementById('start-session-btn').style.display = 'block';
     }
     </script>
 </body>
