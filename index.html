@@ -230,7 +230,7 @@
         // Show modal and handle questionnaire
         window.startSession = async function() {
             // Create session first
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('jwt_token');
             const res = await fetch('/api/sessions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -384,7 +384,7 @@
         };
         document.getElementById('configure-map-canvas').onclick = configureMapCanvasClick;
         document.getElementById('config-save-btn').onclick = async function() {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('jwt_token');
             let msg = '';
             if (configCellsToAdd.length > 0) {
                 const res = await fetch('/api/map-configurations', {

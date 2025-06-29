@@ -15,7 +15,9 @@ apiRouter.use(bodyParser.json());
 
 // Middleware to authenticate JWT
 function authenticateToken(req, res, next) {
+    console.log('Headers:', req.headers);
     const authHeader = req.headers['authorization'];
+    console.log('Auth header:', authHeader);
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
     jwt.verify(token, JWT_SECRET, (err, user) => {

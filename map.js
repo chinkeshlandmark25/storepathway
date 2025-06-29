@@ -1,5 +1,5 @@
 // Map and session logic
-import { token, showMsg } from './auth.js';
+import { showMsg } from './auth.js';
 
 let sessionId = null;
 let arrows = [];
@@ -15,6 +15,7 @@ export function setupMapApp() {
 
 async function startSession() {
     checkinTime = new Date().toISOString();
+    const token = localStorage.getItem('jwt_token');
     const res = await fetch('/api/sessions', {
         method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
         body: JSON.stringify({checkin_time: checkinTime})
@@ -154,7 +155,7 @@ function setupCanvasArrowDrawing() {
 async function finishSession() {
     if (!sessionId || arrows.length === 0) return showMsg('session-msg','Draw at least one arrow!');
     // Save arrows
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('jwt_token');
     await fetch(`/api/sessions/${sessionId}/arrows`, {
         method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
         body: JSON.stringify({arrows})
