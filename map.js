@@ -2,19 +2,15 @@
 import { token, showMsg } from './auth.js';
 
 let sessionId = null;
-let markedCells = [];
+let arrows = [];
+let arrowStart = null;
 let checkinTime = null;
-const gridRows = 30, gridCols = 45;
-const cellWidth = 20, cellHeight = 20;
-let isDragging = false;
-let dragStartCell = null;
-let dragCurrentCell = null;
 
 export function setupMapApp() {
     window.startSession = startSession;
     window.finishSession = finishSession;
     drawMap();
-    setupCanvasDragSelection();
+    setupCanvasArrowDrawing();
 }
 
 async function startSession() {
@@ -26,30 +22,12 @@ async function startSession() {
     const data = await res.json();
     if (data.sessionId) {
         sessionId = data.sessionId;
-        markedCells = [];
+        arrows = [];
         document.getElementById('map-section').style.display = 'flex';
         document.getElementById('start-session-btn').style.display = 'none';
         drawMap();
-        setupCanvasDragSelection();
+        setupCanvasArrowDrawing();
     } else showMsg('session-msg', 'Could not start session');
-}
-
-function getCellsOnLine(x0, y0, x1, y1) {
-    // Bresenham's line algorithm for grid cells
-    const cells = [];
-    let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
-    let sx = x0 < x1 ? 1 : -1;
-    let sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    let x = x0, y = y0;
-    while (true) {
-        cells.push({cell_x: x, cell_y: y});
-        if (x === x1 && y === y1) break;
-        let e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x += sx; }
-        if (e2 < dx) { err += dx; y += sy; }
-    }
-    return cells;
 }
 
 function drawMap() {
@@ -61,129 +39,125 @@ function drawMap() {
     img.onload = function() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        // Draw grid
+        // Draw arrows
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-        ctx.lineWidth = 1;
-        for(let i=0;i<=gridCols;i++) {
+        ctx.strokeStyle = '#ff0';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        for(const arrow of arrows) {
             ctx.beginPath();
-            ctx.moveTo(i*cellWidth,0);
-            ctx.lineTo(i*cellWidth,canvas.height);
+            ctx.moveTo(arrow.start_x, arrow.start_y);
+            ctx.lineTo(arrow.end_x, arrow.end_y);
             ctx.stroke();
-        }
-        for(let j=0;j<=gridRows;j++) {
-            ctx.beginPath();
-            ctx.moveTo(0,j*cellHeight);
-            ctx.lineTo(canvas.width,j*cellHeight);
-            ctx.stroke();
+            // Draw arrowhead
+            drawArrowhead(ctx, arrow.start_x, arrow.start_y, arrow.end_x, arrow.end_y);
         }
         ctx.restore();
-        // Highlight marked cells
-        ctx.fillStyle = 'rgba(118,75,162,0.7)';
-        const highlightWidth = cellWidth * 2/3;
-        const highlightHeight = cellHeight * 2/3;
-        for(const cell of markedCells) {
-            ctx.fillRect(
-                cell.cell_x*cellWidth + (cellWidth-highlightWidth)/2,
-                cell.cell_y*cellHeight + (cellHeight-highlightHeight)/2,
-                highlightWidth,
-                highlightHeight
-            );
-        }
-        // If dragging, preview the path
-        if (isDragging && dragStartCell && dragCurrentCell) {
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            const pathCells = getCellsOnLine(dragStartCell.cell_x, dragStartCell.cell_y, dragCurrentCell.cell_x, dragCurrentCell.cell_y);
-            for(const cell of pathCells) {
-                ctx.fillRect(
-                    cell.cell_x*cellWidth + (cellWidth-highlightWidth)/2,
-                    cell.cell_y*cellHeight + (cellHeight-highlightHeight)/2,
-                    highlightWidth,
-                    highlightHeight
-                );
-            }
+        // If drawing a new arrow
+        if (arrowStart && currentMouse) {
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(arrowStart.x, arrowStart.y);
+            ctx.lineTo(currentMouse.x, currentMouse.y);
+            ctx.stroke();
+            drawArrowhead(ctx, arrowStart.x, arrowStart.y, currentMouse.x, currentMouse.y);
+            ctx.restore();
         }
     }
 }
 
-function addCellsToMarked(pathCells) {
-    for(const cell of pathCells) {
-        if (!markedCells.some(c=>c.cell_x===cell.cell_x&&c.cell_y===cell.cell_y)) {
-            markedCells.push(cell);
-        }
-    }
+function drawArrowhead(ctx, x0, y0, x1, y1) {
+    const angle = Math.atan2(y1 - y0, x1 - x0);
+    const len = 15;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - len * Math.cos(angle - Math.PI/7), y1 - len * Math.sin(angle - Math.PI/7));
+    ctx.lineTo(x1 - len * Math.cos(angle + Math.PI/7), y1 - len * Math.sin(angle + Math.PI/7));
+    ctx.lineTo(x1, y1);
+    ctx.closePath();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fill();
+    ctx.restore();
 }
 
-function setupCanvasDragSelection() {
+let currentMouse = null;
+function setupCanvasArrowDrawing() {
     const canvas = document.getElementById('map-canvas');
     if (!canvas) return;
-    let lastCell = null;
-    let dragMoved = false;
-    let downCell = null;
+    // Mouse events
     canvas.onmousedown = function(e) {
         const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX-rect.left)/cellWidth);
-        const y = Math.floor((e.clientY-rect.top)/cellHeight);
-        isDragging = true;
-        dragStartCell = {cell_x: x, cell_y: y};
-        dragCurrentCell = {cell_x: x, cell_y: y};
-        lastCell = {cell_x: x, cell_y: y};
-        downCell = {cell_x: x, cell_y: y};
-        dragMoved = false;
-        drawMap();
+        arrowStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        currentMouse = { ...arrowStart };
     };
     canvas.onmousemove = function(e) {
-        if (!isDragging) return;
+        if (!arrowStart) return;
         const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX-rect.left)/cellWidth);
-        const y = Math.floor((e.clientY-rect.top)/cellHeight);
-        dragCurrentCell = {cell_x: x, cell_y: y};
-        if (lastCell && (lastCell.cell_x !== x || lastCell.cell_y !== y)) {
-            const pathCells = getCellsOnLine(lastCell.cell_x, lastCell.cell_y, x, y);
-            addCellsToMarked(pathCells);
-            lastCell = {cell_x: x, cell_y: y};
-            dragMoved = true;
-        }
+        currentMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         drawMap();
     };
     canvas.onmouseup = function(e) {
-        if (!isDragging) return;
+        if (!arrowStart) return;
         const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX-rect.left)/cellWidth);
-        const y = Math.floor((e.clientY-rect.top)/cellHeight);
-        if (!dragMoved && downCell && downCell.cell_x === x && downCell.cell_y === y) {
-            // Single tap/click: toggle cell
-            const idx = markedCells.findIndex(c=>c.cell_x===x&&c.cell_y===y);
-            if (idx === -1) markedCells.push({cell_x:x,cell_y:y});
-            else markedCells.splice(idx,1);
-        }
-        isDragging = false;
-        dragStartCell = null;
-        dragCurrentCell = null;
-        lastCell = null;
-        downCell = null;
-        dragMoved = false;
+        const end = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        arrows.push({ start_x: arrowStart.x, start_y: arrowStart.y, end_x: end.x, end_y: end.y });
+        arrowStart = null;
+        currentMouse = null;
         drawMap();
     };
     canvas.onmouseleave = function() {
-        if (isDragging) {
-            isDragging = false;
-            dragStartCell = null;
-            dragCurrentCell = null;
-            lastCell = null;
-            downCell = null;
-            dragMoved = false;
-            drawMap();
+        arrowStart = null;
+        currentMouse = null;
+        drawMap();
+    };
+    // Touch events
+    canvas.ontouchstart = function(e) {
+        if (e.touches.length !== 1) return;
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        arrowStart = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+        currentMouse = { ...arrowStart };
+        e.preventDefault();
+    };
+    canvas.ontouchmove = function(e) {
+        if (!arrowStart || e.touches.length !== 1) return;
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        currentMouse = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+        drawMap();
+        e.preventDefault();
+    };
+    canvas.ontouchend = function(e) {
+        if (!arrowStart) return;
+        const rect = canvas.getBoundingClientRect();
+        // Use changedTouches for end position
+        const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+        if (touch) {
+            const end = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+            arrows.push({ start_x: arrowStart.x, start_y: arrowStart.y, end_x: end.x, end_y: end.y });
         }
+        arrowStart = null;
+        currentMouse = null;
+        drawMap();
+        e.preventDefault();
+    };
+    canvas.ontouchcancel = function() {
+        arrowStart = null;
+        currentMouse = null;
+        drawMap();
     };
 }
 
 async function finishSession() {
-    if (!sessionId || markedCells.length===0) return showMsg('session-msg','Mark at least one cell!');
-    // Save cells
-    await fetch(`/api/sessions/${sessionId}/cells`, {
+    if (!sessionId || arrows.length === 0) return showMsg('session-msg','Draw at least one arrow!');
+    // Save arrows
+    const token = localStorage.getItem('token');
+    await fetch(`/api/sessions/${sessionId}/arrows`, {
         method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body: JSON.stringify({cells: markedCells})
+        body: JSON.stringify({arrows})
     });
     // Set checkout time
     const checkoutTime = new Date().toISOString();

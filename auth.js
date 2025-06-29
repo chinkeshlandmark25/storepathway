@@ -11,6 +11,7 @@ export async function login() {
     const data = await res.json();
     if (data.token) {
         token = data.token;
+        localStorage.setItem('jwt_token', data.token); // Save JWT to localStorage
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('session-container').style.display = 'flex';
     } else showMsg('auth-msg', data.error || 'Login failed');
