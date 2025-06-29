@@ -22,3 +22,32 @@ CREATE TABLE IF NOT EXISTS session_cells (
     cell_x INTEGER NOT NULL,
     cell_y INTEGER NOT NULL
 );
+
+-- Add role to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user';
+
+-- Add questionnaire columns to sessions
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS customer_entry VARCHAR(255);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS customer_segment VARCHAR(255);
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS nationality VARCHAR(255);
+
+-- Table for map configurations (turning points, fixtures, gates)
+CREATE TABLE IF NOT EXISTS map_configurations (
+    id SERIAL PRIMARY KEY,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    cell_x INTEGER NOT NULL,
+    cell_y INTEGER NOT NULL,
+    config_type VARCHAR(50) NOT NULL, -- e.g., 'turning_point', 'fixture', 'entry_gate', 'exit_gate'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for storing arrows (paths) drawn by users
+CREATE TABLE IF NOT EXISTS session_arrows (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    start_x INTEGER NOT NULL,
+    start_y INTEGER NOT NULL,
+    end_x INTEGER NOT NULL,
+    end_y INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
