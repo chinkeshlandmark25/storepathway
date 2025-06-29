@@ -42,7 +42,7 @@ function drawMap() {
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
         // Draw arrows
         ctx.save();
-        ctx.strokeStyle = '#ff0';
+        ctx.strokeStyle = '#a020f0'; // purple
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         for(const arrow of arrows) {
@@ -57,7 +57,7 @@ function drawMap() {
         // If drawing a new arrow
         if (arrowStart && currentMouse) {
             ctx.save();
-            ctx.strokeStyle = '#fff';
+            ctx.strokeStyle = '#a020f0'; // purple
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(arrowStart.x, arrowStart.y);
