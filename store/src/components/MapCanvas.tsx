@@ -1,12 +1,29 @@
 import React, { useRef, useEffect, useState } from 'react';
 
+interface MapPoint {
+  x: number;
+  y: number;
+  config_type: string;
+}
+
 interface MapCanvasProps {
   arrows: Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>;
   onArrowDraw: (arrow: { start_x: number; start_y: number; end_x: number; end_y: number }) => void;
   backgroundImage: string;
+  points?: Array<MapPoint>;
+  showGrid?: boolean;
 }
 
-const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage }) => {
+const COLOR_MAP: Record<string, string> = {
+  TURNING_POINT: '#0074D9', // blue
+  FIXTURE: '#ff4136', // red
+  ENTRY_GATE: '#2ECC40', // green
+  EXIT_GATE: '#FFDC00', // yellow
+};
+
+const GRID_SIZE = 10; // 900/90 = 10, 600/60 = 10
+
+const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage, points = [], showGrid }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -28,6 +45,25 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       ctx.translate(offset.x, offset.y);
       ctx.scale(zoom, zoom);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Draw grid overlay if enabled
+      if (showGrid) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.lineWidth = 1 / zoom;
+        for (let x = 0; x <= 900; x += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, 600);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= 600; y += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(900, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
       ctx.strokeStyle = '#a020f0';
       ctx.lineWidth = 3 / zoom;
       ctx.lineCap = 'round';
@@ -38,9 +74,22 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
         ctx.stroke();
         drawArrowhead(ctx, arrow.start_x, arrow.start_y, arrow.end_x, arrow.end_y);
       }
+      for (const pt of points) {
+        ctx.beginPath();
+        if (pt.config_type === 'FIXTURE') {
+          ctx.rect(pt.x - GRID_SIZE / 2, pt.y - GRID_SIZE / 2, GRID_SIZE, GRID_SIZE); // Draw as square
+        } else {
+          ctx.arc(pt.x, pt.y, GRID_SIZE / 2, 0, 2 * Math.PI); // Draw as circle
+        }
+        ctx.fillStyle = COLOR_MAP[pt.config_type] || '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2 / zoom;
+        ctx.stroke();
+      }
       ctx.restore();
     };
-  }, [arrows, backgroundImage, zoom, offset]);
+  }, [arrows, backgroundImage, zoom, offset, points, showGrid]);
 
   function drawArrowhead(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
     const angle = Math.atan2(y1 - y0, x1 - x0);

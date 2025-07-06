@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MapCanvas from './MapCanvas';
 
 interface Questionnaire {
@@ -40,6 +40,13 @@ function getNameFromToken(token: string): string | null {
   }
 }
 
+const CellType = Object.freeze({
+  TURNING_POINT: 'TURNING_POINT',
+  FIXTURE: 'FIXTURE',
+  ENTRY_GATE: 'ENTRY_GATE',
+  EXIT_GATE: 'EXIT_GATE',
+});
+
 const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession, sessionId, showQuestionnaire, showMap, arrows, setArrows, msg, setMsg, loading, setLoading, setShowQuestionnaire, setShowMap, setSessionId }) => {
   const [questionnaire, setQuestionnaire] = useState<Questionnaire>({
     customer_entry: '',
@@ -47,7 +54,42 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
     nationality: ''
   });
   const [fabOpen, setFabOpen] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   const userName = useMemo(() => getNameFromToken(token), [token]);
+  // Update points type to include config_type
+  const [points, setPoints] = useState<Array<{ x: number; y: number; config_type: string }>>([]);
+
+  useEffect(() => {
+    if (!showMap) return;
+    // Fetch points from /map-configurations
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_BASE || '/api'}/map-configurations`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        let data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          // Provide 5 sample points if none from API
+          data = [
+            { x: 100, y: 100, config_type: CellType.TURNING_POINT },
+            { x: 300, y: 150, config_type: CellType.FIXTURE },
+            { x: 500, y: 400, config_type: CellType.ENTRY_GATE },
+            { x: 700, y: 200, config_type: CellType.EXIT_GATE },
+            { x: 800, y: 500, config_type: CellType.FIXTURE }
+          ];
+        }
+        setPoints((data as Array<any>).map((pt: any) => ({ x: pt.cell_x ?? pt.x, y: pt.cell_y ?? pt.y, config_type: pt.config_type })));
+      } catch {
+        setPoints([
+          { x: 100, y: 100, config_type: CellType.TURNING_POINT },
+          { x: 300, y: 150, config_type: CellType.FIXTURE },
+          { x: 500, y: 400, config_type: CellType.ENTRY_GATE },
+          { x: 700, y: 200, config_type: CellType.EXIT_GATE },
+          { x: 800, y: 500, config_type: CellType.FIXTURE }
+        ]);
+      }
+    })();
+  }, [showMap, token]);
 
   const submitQuestionnaire = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +225,13 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
                 >
                   Finish Session
                 </button>
+                <button
+                  className="btn btn-info btn-lg"
+                  style={{ marginBottom: 8, minWidth: 160, borderRadius: 24, boxShadow: '0 2px 8px #0008' }}
+                  onClick={() => setShowGrid(g => !g)}
+                >
+                  {showGrid ? 'Hide Grid' : 'Show Grid'}
+                </button>
               </>
             )}
             <button
@@ -199,6 +248,8 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
               arrows={arrows}
               onArrowDraw={handleArrowDraw}
               backgroundImage={process.env.PUBLIC_URL + '/store.jpg'}
+              points={points}
+              showGrid={showGrid}
             />
           </div>
         </>
