@@ -6,9 +6,16 @@ interface MapPoint {
   config_type: string;
 }
 
+interface ArrowGrid {
+  start_x: number;
+  start_y: number;
+  end_x: number;
+  end_y: number;
+}
+
 interface MapCanvasProps {
-  arrows: Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>;
-  onArrowDraw: (arrow: { start_x: number; start_y: number; end_x: number; end_y: number }) => void;
+  arrows: ArrowGrid[];
+  onArrowDraw: (arrow: ArrowGrid) => void;
   backgroundImage: string;
   points?: Array<MapPoint>;
   showGrid?: boolean;
@@ -69,10 +76,15 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       ctx.lineCap = 'round';
       for (const arrow of arrows) {
         ctx.beginPath();
-        ctx.moveTo(arrow.start_x, arrow.start_y);
-        ctx.lineTo(arrow.end_x, arrow.end_y);
+        ctx.moveTo(arrow.start_x * GRID_SIZE, arrow.start_y * GRID_SIZE);
+        ctx.lineTo(arrow.end_x * GRID_SIZE, arrow.end_y * GRID_SIZE);
         ctx.stroke();
-        drawArrowhead(ctx, arrow.start_x, arrow.start_y, arrow.end_x, arrow.end_y);
+        drawArrowhead(ctx,
+          arrow.start_x * GRID_SIZE,
+          arrow.start_y * GRID_SIZE,
+          arrow.end_x * GRID_SIZE,
+          arrow.end_y * GRID_SIZE
+        );
       }
       for (const pt of points) {
         ctx.beginPath();
@@ -106,6 +118,8 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     ctx.restore();
   }
 
+  const snapToGrid = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 1 || e.ctrlKey) {
       setDragging(true);
@@ -115,7 +129,8 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x) / zoom;
     const y = (e.clientY - rect.top - offset.y) / zoom;
-    start.current = { x, y };
+    // Snap to grid
+    start.current = { x: snapToGrid(x), y: snapToGrid(y) };
     drawing.current = true;
   };
 
@@ -128,7 +143,20 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x) / zoom;
     const y = (e.clientY - rect.top - offset.y) / zoom;
-    onArrowDraw({ start_x: start.current.x, start_y: start.current.y, end_x: x, end_y: y });
+    // Snap to grid
+    const snappedX = snapToGrid(x);
+    const snappedY = snapToGrid(y);
+    // Convert to grid numbers
+    const start_grid_x = Math.round(start.current.x / GRID_SIZE);
+    const start_grid_y = Math.round(start.current.y / GRID_SIZE);
+    const end_grid_x = Math.round(snappedX / GRID_SIZE);
+    const end_grid_y = Math.round(snappedY / GRID_SIZE);
+    onArrowDraw({
+      start_x: start_grid_x,
+      start_y: start_grid_y,
+      end_x: end_grid_x,
+      end_y: end_grid_y,
+    });
     drawing.current = false;
     start.current = null;
   };

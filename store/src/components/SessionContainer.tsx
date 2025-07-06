@@ -11,15 +11,22 @@ const CustomerEntry = ["Royal rest", "HomeBox", "Lift"];
 const CustomerSegmentation = ["Single - Male", "Single - Female", "Couple", "Couple with Children", "Large Family"];
 const Nationality = ["National", "Arab Expats", "ISC", "SEAC", "Africans", "Western"];
 
+interface ArrowGrid {
+  start_x: number;
+  start_y: number;
+  end_x: number;
+  end_y: number
+}
+
 interface SessionContainerProps {
   token: string;
   startSession: () => Promise<void>;
   sessionId: string | null;
   showQuestionnaire: boolean;
   showMap: boolean;
-  arrows: Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>;
+  arrows: ArrowGrid[];
 
-  setArrows: React.Dispatch<React.SetStateAction<Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>>>;
+  setArrows: React.Dispatch<React.SetStateAction<ArrowGrid[]>>;
   msg: string;
   setMsg: React.Dispatch<React.SetStateAction<string>>;
   loading: boolean;
@@ -69,13 +76,24 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
         });
         let data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
-          // Provide 5 sample points if none from API
+          // Provide 15 sample points if none from API
           data = [
             { x: 100, y: 100, config_type: CellType.TURNING_POINT },
             { x: 300, y: 150, config_type: CellType.FIXTURE },
             { x: 500, y: 400, config_type: CellType.ENTRY_GATE },
             { x: 700, y: 200, config_type: CellType.EXIT_GATE },
-            { x: 800, y: 500, config_type: CellType.FIXTURE }
+            { x: 800, y: 500, config_type: CellType.FIXTURE },
+            // 10 more turning points
+            { x: 120, y: 120, config_type: CellType.TURNING_POINT },
+            { x: 140, y: 140, config_type: CellType.TURNING_POINT },
+            { x: 160, y: 160, config_type: CellType.TURNING_POINT },
+            { x: 180, y: 180, config_type: CellType.TURNING_POINT },
+            { x: 200, y: 200, config_type: CellType.TURNING_POINT },
+            { x: 220, y: 220, config_type: CellType.TURNING_POINT },
+            { x: 240, y: 240, config_type: CellType.TURNING_POINT },
+            { x: 260, y: 260, config_type: CellType.TURNING_POINT },
+            { x: 280, y: 280, config_type: CellType.TURNING_POINT },
+            { x: 300, y: 300, config_type: CellType.TURNING_POINT }
           ];
         }
         setPoints((data as Array<any>).map((pt: any) => ({ x: pt.cell_x ?? pt.x, y: pt.cell_y ?? pt.y, config_type: pt.config_type })));
@@ -116,7 +134,7 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
     setLoading(false);
   };
 
-  const handleArrowDraw = (arrow: { start_x: number; start_y: number; end_x: number; end_y: number }) => {
+  const handleArrowDraw = (arrow: ArrowGrid) => {
     setArrows(prev => [...prev, arrow]);
   };
 
@@ -138,6 +156,7 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
         setArrows([]);
       } else {
         const err = await res.json();
+        console.log(err);
         setMsg(err.error || 'Could not finish session.');
       }
     } catch (err) {
