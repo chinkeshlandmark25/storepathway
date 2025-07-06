@@ -2,22 +2,17 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
-const { CellType, CustomerEntry, CustomerSegmentation, Nationality, Role } = require('./enums');
-require('dotenv').config();
+const { CellType, CustomerEntry, CustomerSegmentation, Nationality, Role } = require('../../enums');
+const pool = require('../db/connect_postgres');
 
 const apiRouter = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
-const POSTGRES_CONN_STRING = process.env.POSTGRES_CONN_STRING;
-const pool = new Pool({ connectionString: POSTGRES_CONN_STRING, ssl: { rejectUnauthorized: false } });
 
 apiRouter.use(bodyParser.json());
 
 // Middleware to authenticate JWT
 function authenticateToken(req, res, next) {
-    console.log('Headers:', req.headers);
     const authHeader = req.headers['authorization'];
-    console.log('Auth header:', authHeader);
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
     jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -37,14 +32,11 @@ function requireSuperuser(req, res, next) {
 // Register
 apiRouter.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Register attempt:', { username });
     const hash = await bcrypt.hash(password, 10);
     try {
         const result = await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id', [username, hash]);
-        console.log('User registered:', { userId: result.rows[0].id, username });
         res.json({ userId: result.rows[0].id });
     } catch (e) {
-        console.error('Registration error:', e.message);
         res.status(400).json({ error: 'Username already exists' });
     }
 });
@@ -153,6 +145,5 @@ apiRouter.post('/sessions/:sessionId/finish', authenticateToken, async (req, res
     await pool.query('UPDATE sessions SET checkout_time = $1 WHERE id = $2 AND user_id = $3', [checkout_time, sessionId, req.user.userId]);
     res.json({ success: true });
 });
-
 
 module.exports = apiRouter;
