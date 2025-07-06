@@ -245,6 +245,14 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
                   Finish Session
                 </button>
                 <button
+                  className="btn btn-warning btn-lg"
+                  style={{ marginBottom: 8, minWidth: 160, borderRadius: 24, boxShadow: '0 2px 8px #0008' }}
+                  onClick={() => setArrows(prev => prev.slice(0, -1))}
+                  disabled={arrows.length === 0}
+                >
+                  Undo
+                </button>
+                <button
                   className="btn btn-info btn-lg"
                   style={{ marginBottom: 8, minWidth: 160, borderRadius: 24, boxShadow: '0 2px 8px #0008' }}
                   onClick={() => setShowGrid(g => !g)}

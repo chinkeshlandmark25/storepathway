@@ -89,9 +89,9 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       for (const pt of points) {
         ctx.beginPath();
         if (pt.config_type === 'FIXTURE') {
-          ctx.rect(pt.x - GRID_SIZE / 2, pt.y - GRID_SIZE / 2, GRID_SIZE, GRID_SIZE); // Draw as square
+          ctx.rect(pt.x - GRID_SIZE / 2, pt.y - GRID_SIZE / 2, GRID_SIZE, GRID_SIZE);
         } else {
-          ctx.arc(pt.x, pt.y, GRID_SIZE / 2, 0, 2 * Math.PI); // Draw as circle
+          ctx.arc(pt.x, pt.y, GRID_SIZE / 2, 0, 2 * Math.PI);
         }
         ctx.fillStyle = COLOR_MAP[pt.config_type] || '#fff';
         ctx.fill();
