@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 
 interface SidebarProps {
   onLogout: () => void;
+  onStartSession: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onLogout, onStartSession }) => {
   const [expanded, setExpanded] = useState<boolean>(localStorage.getItem('sidebar_expanded') === '1');
 
   const handleToggle = () => {
@@ -25,7 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
           <i className="bi bi-list"></i>
         </button>
         <div className="sidebar-items w-100 d-flex flex-column align-items-center gap-3">
-          <button className="btn btn-dark" title="Session">
+          <button className="btn btn-dark" title="Session" onClick={onStartSession}>
             <i className="bi bi-person-lines-fill"></i>
             <span className={`sidebar-label ms-2${expanded ? '' : ' d-none'}`}>New Session</span>
           </button>

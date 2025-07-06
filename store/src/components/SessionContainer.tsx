@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import MapCanvas from './MapCanvas';
 
 interface Questionnaire {
   customer_entry: string;
@@ -12,44 +13,41 @@ const Nationality = ["National", "Arab Expats", "ISC", "SEAC", "Africans", "West
 
 interface SessionContainerProps {
   token: string;
-  onLogout: () => void;
+  startSession: () => Promise<void>;
+  sessionId: string | null;
+  showQuestionnaire: boolean;
+  showMap: boolean;
+  arrows: Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>;
+
+  setArrows: React.Dispatch<React.SetStateAction<Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>>>;
+  msg: string;
+  setMsg: React.Dispatch<React.SetStateAction<string>>;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowQuestionnaire: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowMap: React.Dispatch<React.SetStateAction<boolean>>;
+  setSessionId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-const SessionContainer: React.FC<SessionContainerProps> = ({ token, onLogout }) => {
-  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+// Helper to decode JWT and extract name
+function getNameFromToken(token: string): string | null {
+  try {
+    const payload = token.split('.')[1];
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return decoded.name || decoded.username || null;
+  } catch {
+    return null;
+  }
+}
+
+const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession, sessionId, showQuestionnaire, showMap, arrows, setArrows, msg, setMsg, loading, setLoading, setShowQuestionnaire, setShowMap, setSessionId }) => {
   const [questionnaire, setQuestionnaire] = useState<Questionnaire>({
     customer_entry: '',
     customer_segment: '',
     nationality: ''
   });
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [msg, setMsg] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // Use environment variable if available, else default to relative path
-  const API_BASE = process.env.REACT_APP_API_BASE || '/api';
-
-  const startSession = async () => {
-    setLoading(true);
-    setMsg('');
-    try {
-      const res = await fetch(`${API_BASE}/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ checkin_time: new Date().toISOString() })
-      });
-      const data = await res.json();
-      if (data.sessionId) {
-        setSessionId(data.sessionId);
-        setShowQuestionnaire(true);
-      } else {
-        setMsg('Could not start session.');
-      }
-    } catch (err) {
-      setMsg('Network error');
-    }
-    setLoading(false);
-  };
+  const [fabOpen, setFabOpen] = useState(false);
+  const userName = useMemo(() => getNameFromToken(token), [token]);
 
   const submitQuestionnaire = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,14 +55,15 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, onLogout }) 
     setLoading(true);
     setMsg('');
     try {
-      const res = await fetch(`${API_BASE}/sessions/${sessionId}/questionnaire`, {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE || '/api'}/sessions/${sessionId}/questionnaire`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify(questionnaire)
       });
       if (res.ok) {
         setShowQuestionnaire(false);
-        setMsg('Session started!');
+        setShowMap(true);
+        setMsg('');
       } else {
         const err = await res.json();
         setMsg(err.error || 'Invalid input.');
@@ -75,19 +74,57 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, onLogout }) 
     setLoading(false);
   };
 
+  const handleArrowDraw = (arrow: { start_x: number; start_y: number; end_x: number; end_y: number }) => {
+    setArrows(prev => [...prev, arrow]);
+  };
+
+  const handleFinishSession = async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_BASE || '/api'}/sessions/${sessionId}/arrows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ arrows })
+      });
+      if (res.ok) {
+        setMsg('Session finished!');
+        setSessionId(null);
+        setShowMap(false);
+        setShowQuestionnaire(false);
+        setArrows([]);
+      } else {
+        const err = await res.json();
+        setMsg(err.error || 'Could not finish session.');
+      }
+    } catch (err) {
+      setMsg('Network error');
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="container custom-container mt-5" id="session-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <h2>Session</h2>
-      <div className="d-grid gap-2 mb-3" style={{ maxWidth: 300, margin: '0 auto', display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-        <button id="start-session-btn" className="btn btn-success" onClick={startSession} disabled={loading || !!sessionId}>
-          Start New Session
-        </button>
-        <button id="logout-btn" className="btn btn-outline-danger" onClick={onLogout}>
-          Logout
-        </button>
+    <div id="session-container" style={{ width: '100vw', height: '100vh', background: '#181818', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      {/* Bootstrap Toast Container */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1080, minWidth: 320 }}
+      >
+        {msg && (
+          <div className="toast show align-items-center text-bg-info border-0 mb-2" role="alert" aria-live="assertive" aria-atomic="true" style={{ minWidth: 320 }}>
+            <div className="d-flex">
+              <div className="toast-body">
+                {msg}
+              </div>
+              <button type="button" className="btn-close btn-close-white me-2 m-auto" aria-label="Close" onClick={() => setMsg('')}></button>
+            </div>
+          </div>
+        )}
       </div>
       {showQuestionnaire && (
-        <div className="modal show d-block" tabIndex={-1}>
+        <div className="modal show d-block" tabIndex={-1} style={{ zIndex: 10 }}>
           <div className="modal-dialog">
             <div className="modal-content bg-dark text-light">
               <div className="modal-header">
@@ -124,7 +161,61 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, onLogout }) 
           </div>
         </div>
       )}
-      <div id="session-msg" className="form-text text-info">{msg}</div>
+      {showMap && (
+        <>
+          {/* Floating Action Button (FAB) */}
+          <div style={{ position: 'absolute', bottom: 32, right: 32, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 16 }}>
+            {fabOpen && (
+              <>
+                <button
+                  className="btn btn-outline-secondary btn-lg"
+                  style={{ marginBottom: 8, minWidth: 160, borderRadius: 24, boxShadow: '0 2px 8px #0008' }}
+                  onClick={() => { setFabOpen(false); startSession(); }}
+                  disabled={loading || !!sessionId}
+                >
+                  Restart
+                </button>
+                <button
+                  className="btn btn-primary btn-lg"
+                  style={{ marginBottom: 8, minWidth: 160, borderRadius: 24, boxShadow: '0 2px 8px #0008' }}
+                  onClick={() => { setFabOpen(false); handleFinishSession(); }}
+                  disabled={loading || arrows.length === 0}
+                >
+                  Finish Session
+                </button>
+              </>
+            )}
+            <button
+              className="btn btn-light btn-lg"
+              style={{ borderRadius: '50%', width: 64, height: 64, boxShadow: '0 2px 8px #0008', fontSize: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => setFabOpen(fab => !fab)}
+              aria-label="Actions"
+            >
+              {fabOpen ? <span>&times;</span> : <span>&#43;</span>}
+            </button>
+          </div>
+          <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MapCanvas
+              arrows={arrows}
+              onArrowDraw={handleArrowDraw}
+              backgroundImage={process.env.PUBLIC_URL + '/store.jpg'}
+            />
+          </div>
+        </>
+      )}
+      {!showQuestionnaire && !showMap && (
+        <div className="d-flex flex-column align-items-center justify-content-center h-100">
+          <h1 className="text-light">
+            Hi, {userName ? `${userName}` : ''}
+          </h1>
+          <button className="btn btn-primary mt-3" onClick={startSession} disabled={loading || !!sessionId}>
+            {loading ? 'Starting...' : 'Start New Session'}
+          </button>
+          {sessionId && (
+            <p className="text-light mt-3">Session ID: {sessionId}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

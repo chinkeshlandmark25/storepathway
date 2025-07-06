@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface MapCanvasProps {
   arrows: Array<{ start_x: number; start_y: number; end_x: number; end_y: number }>;
@@ -10,6 +10,10 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const start = useRef<{ x: number; y: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -20,10 +24,12 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     img.src = backgroundImage;
     img.onload = function () {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       ctx.save();
+      ctx.translate(offset.x, offset.y);
+      ctx.scale(zoom, zoom);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = '#a020f0';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3 / zoom;
       ctx.lineCap = 'round';
       for (const arrow of arrows) {
         ctx.beginPath();
@@ -34,7 +40,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       }
       ctx.restore();
     };
-  }, [arrows, backgroundImage]);
+  }, [arrows, backgroundImage, zoom, offset]);
 
   function drawArrowhead(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
     const angle = Math.atan2(y1 - y0, x1 - x0);
@@ -52,29 +58,68 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
   }
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button === 1 || e.ctrlKey) {
+      setDragging(true);
+      dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
-    start.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const x = (e.clientX - rect.left - offset.x) / zoom;
+    const y = (e.clientY - rect.top - offset.y) / zoom;
+    start.current = { x, y };
     drawing.current = true;
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragging) {
+      setDragging(false);
+      return;
+    }
     if (!drawing.current || !start.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const end = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    onArrowDraw({ start_x: start.current.x, start_y: start.current.y, end_x: end.x, end_y: end.y });
+    const x = (e.clientX - rect.left - offset.x) / zoom;
+    const y = (e.clientY - rect.top - offset.y) / zoom;
+    onArrowDraw({ start_x: start.current.x, start_y: start.current.y, end_x: x, end_y: y });
     drawing.current = false;
     start.current = null;
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragging && dragStart.current) {
+      setOffset({
+        x: e.clientX - dragStart.current.x,
+        y: e.clientY - dragStart.current.y
+      });
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const scale = e.deltaY < 0 ? 1.1 : 0.9;
+    setZoom(z => {
+      const newZoom = z * scale;
+      return Math.max(1, Math.min(5, newZoom));
+    });
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      width={900}
-      height={600}
-      style={{ border: '1px solid #fff', maxWidth: '100%', maxHeight: '80vh', display: 'block', cursor: 'pointer' }}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-    />
+    <div style={{ position: 'relative', width: 900, height: 600 }}>
+      <canvas
+        ref={canvasRef}
+        width={900}
+        height={600}
+        style={{ border: '2px solid #fff', background: '#222', display: 'block', cursor: dragging ? 'grab' : 'crosshair', width: '100%', height: '100%' }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        onWheel={handleWheel}
+      />
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.min(5, z * 1.1))}>+</button>
+        <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.max(1, z * 0.9))}>-</button>
+        <button className="btn btn-light btn-sm" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}>Reset</button>
+      </div>
+    </div>
   );
 };
 
