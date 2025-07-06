@@ -19,6 +19,8 @@ interface MapCanvasProps {
   backgroundImage: string;
   points?: Array<MapPoint>;
   showGrid?: boolean;
+  pulseCell?: { x: number; y: number } | null;
+  onCellClick?: (cell: { x: number; y: number }) => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -30,7 +32,7 @@ const COLOR_MAP: Record<string, string> = {
 
 const GRID_SIZE = 10; // 900/90 = 10, 600/60 = 10
 
-const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage, points = [], showGrid }) => {
+const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage, points = [], showGrid, pulseCell, onCellClick }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -99,9 +101,25 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
         ctx.lineWidth = 2 / zoom;
         ctx.stroke();
       }
+      // Draw pulse if pulseCell is set
+      if (pulseCell) {
+        ctx.save();
+        const pulseX = pulseCell.x * GRID_SIZE;
+        const pulseY = pulseCell.y * GRID_SIZE;
+        const time = Date.now() % 1000;
+        const radius = GRID_SIZE + 6 + 6 * Math.abs(Math.sin((time / 1000) * Math.PI * 2));
+        ctx.beginPath();
+        ctx.arc(pulseX, pulseY, radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+        ctx.lineWidth = 4 / zoom;
+        ctx.shadowColor = '#0ff';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.restore();
+      }
       ctx.restore();
     };
-  }, [arrows, backgroundImage, zoom, offset, points, showGrid]);
+  }, [arrows, backgroundImage, zoom, offset, points, showGrid, pulseCell]);
 
   function drawArrowhead(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
     const angle = Math.atan2(y1 - y0, x1 - x0);
@@ -260,25 +278,41 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     }
   };
 
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onCellClick) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left - offset.x) / zoom;
+    const y = (e.clientY - rect.top - offset.y) / zoom;
+    // Snap to closest grid cell
+    const cell_x = Math.round(x / GRID_SIZE);
+    const cell_y = Math.round(y / GRID_SIZE);
+    if (cell_x >= 0 && cell_x < 90 && cell_y >= 0 && cell_y < 60) {
+      onCellClick({ x: cell_x, y: cell_y });
+    }
+  };
+
   return (
-    <div style={{ position: 'relative', width: 900, height: 600 }}>
-      <canvas
-        ref={canvasRef}
-        width={900}
-        height={600}
-        style={{ border: '2px solid #fff', background: '#222', display: 'block', cursor: dragging ? 'grab' : 'crosshair', width: '100%', height: '100%' }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseMove={handleMouseMove}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchMove}
-      />
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.min(5, z * 1.1))}>+</button>
-        <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.max(1, z * 0.9))}>-</button>
-        <button className="btn btn-light btn-sm" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}>Reset</button>
+    <div style={{ position: 'relative', width: 900, height: 600, display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      <div style={{ position: 'relative', width: 900, height: 600 }}>
+        <canvas
+          ref={canvasRef}
+          width={900}
+          height={600}
+          style={{ border: '2px solid #fff', background: '#222', display: 'block', cursor: dragging ? 'grab' : 'crosshair', width: '100%', height: '100%' }}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
+          onClick={handleCanvasClick}
+        />
+        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.min(5, z * 1.1))}>+</button>
+          <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.max(1, z * 0.9))}>-</button>
+          <button className="btn btn-light btn-sm" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}>Reset</button>
+        </div>
       </div>
     </div>
   );

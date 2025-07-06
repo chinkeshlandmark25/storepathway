@@ -3,6 +3,8 @@ import './App.css';
 import AuthForm from './components/AuthForm';
 import SessionContainer from './components/SessionContainer';
 import Sidebar from './components/Sidebar';
+import ConfigureMapRoute from './ConfigureMapRoute';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
@@ -44,17 +46,59 @@ function App() {
     setToken(null);
   };
 
+  // Sidebar navigation handler
+  const SidebarWithNav = (props: any) => {
+    const navigate = useNavigate();
+    return (
+      <Sidebar
+        onLogout={handleLogout}
+        onStartSession={startSession}
+        onConfigureMap={() => navigate('/configure-map')}
+      />
+    );
+  };
+
   return (
-    <div className="App">
-      {!token ? (
-        <AuthForm onLoginSuccess={setToken} />
-      ) : (
-        <>
-          <Sidebar onLogout={handleLogout} onStartSession={startSession} />
-          <SessionContainer token={token} startSession={startSession} sessionId={sessionId} showQuestionnaire={showQuestionnaire} showMap={showMap} arrows={arrows} setArrows={setArrows} msg={msg} setMsg={setMsg} loading={loading} setLoading={setLoading} setShowQuestionnaire={setShowQuestionnaire} setShowMap={setShowMap} setSessionId={setSessionId} />
-        </>
-      )}
-    </div>
+    <Router>
+      <div className="App">
+        {!token ? (
+          <AuthForm onLoginSuccess={setToken} />
+        ) : (
+          <>
+            <Routes>
+              <Route
+                path="/configure-map"
+                element={<ConfigureMapRoute token={token} />}
+              />
+              <Route
+                path="*"
+                element={
+                  <>
+                    <SidebarWithNav />
+                    <SessionContainer
+                      token={token}
+                      startSession={startSession}
+                      sessionId={sessionId}
+                      showQuestionnaire={showQuestionnaire}
+                      showMap={showMap}
+                      arrows={arrows}
+                      setArrows={setArrows}
+                      msg={msg}
+                      setMsg={setMsg}
+                      loading={loading}
+                      setLoading={setLoading}
+                      setShowQuestionnaire={setShowQuestionnaire}
+                      setShowMap={setShowMap}
+                      setSessionId={setSessionId}
+                    />
+                  </>
+                }
+              />
+            </Routes>
+          </>
+        )}
+      </div>
+    </Router>
   );
 }
 

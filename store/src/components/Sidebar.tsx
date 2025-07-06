@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 interface SidebarProps {
   onLogout: () => void;
   onStartSession: () => void;
+  onConfigureMap: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onLogout, onStartSession }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onLogout, onStartSession, onConfigureMap }) => {
   const [expanded, setExpanded] = useState<boolean>(localStorage.getItem('sidebar_expanded') === '1');
 
   const handleToggle = () => {
@@ -30,7 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, onStartSession }) => {
             <i className="bi bi-person-lines-fill"></i>
             <span className={`sidebar-label ms-2${expanded ? '' : ' d-none'}`}>New Session</span>
           </button>
-          <button className="btn btn-dark" title="Configure Map">
+          <button className="btn btn-dark" title="Configure Map" onClick={onConfigureMap}>
             <i className="bi bi-gear"></i>
             <span className={`sidebar-label ms-2${expanded ? '' : ' d-none'}`}>Configure Map</span>
           </button>

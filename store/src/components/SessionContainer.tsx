@@ -76,27 +76,15 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
         });
         let data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
-          // Provide 15 sample points if none from API
-          data = [
-            { x: 100, y: 100, config_type: CellType.TURNING_POINT },
-            { x: 300, y: 150, config_type: CellType.FIXTURE },
-            { x: 500, y: 400, config_type: CellType.ENTRY_GATE },
-            { x: 700, y: 200, config_type: CellType.EXIT_GATE },
-            { x: 800, y: 500, config_type: CellType.FIXTURE },
-            // 10 more turning points
-            { x: 120, y: 120, config_type: CellType.TURNING_POINT },
-            { x: 140, y: 140, config_type: CellType.TURNING_POINT },
-            { x: 160, y: 160, config_type: CellType.TURNING_POINT },
-            { x: 180, y: 180, config_type: CellType.TURNING_POINT },
-            { x: 200, y: 200, config_type: CellType.TURNING_POINT },
-            { x: 220, y: 220, config_type: CellType.TURNING_POINT },
-            { x: 240, y: 240, config_type: CellType.TURNING_POINT },
-            { x: 260, y: 260, config_type: CellType.TURNING_POINT },
-            { x: 280, y: 280, config_type: CellType.TURNING_POINT },
-            { x: 300, y: 300, config_type: CellType.TURNING_POINT }
-          ];
+            setMsg('No map configuration found. Please configure the map first.');
+            setShowMap(false);
+            return;
         }
-        setPoints((data as Array<any>).map((pt: any) => ({ x: pt.cell_x ?? pt.x, y: pt.cell_y ?? pt.y, config_type: pt.config_type })));
+        setPoints((data as Array<any>).map((pt: any) => ({
+          x: (pt.cell_x ?? pt.x) * 10,
+          y: (pt.cell_y ?? pt.y) * 10,
+          config_type: pt.config_type
+        })));
       } catch {
         setPoints([
           { x: 100, y: 100, config_type: CellType.TURNING_POINT },
