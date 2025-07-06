@@ -10,7 +10,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLoginSuccess }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_BASE = 'http://localhost:8080/api';
+  // Use environment variable if available, else default to relative path
+  const API_BASE = process.env.REACT_APP_API_BASE || '/api';
 
   const handleLogin = async () => {
     setLoading(true);

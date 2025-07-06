@@ -26,7 +26,8 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, onLogout }) 
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_BASE = 'http://localhost:8080/api';
+  // Use environment variable if available, else default to relative path
+  const API_BASE = process.env.REACT_APP_API_BASE || '/api';
 
   const startSession = async () => {
     setLoading(true);
