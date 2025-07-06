@@ -35,27 +35,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLoginSuccess }) => {
     setLoading(false);
   };
 
-  const handleRegister = async () => {
-    setLoading(true);
-    setMessage('');
-    try {
-      const res = await fetch(`${API_BASE}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.userId) {
-        setMessage('Registered! Please login.');
-      } else {
-        setMessage(data.error || 'Registration failed');
-      }
-    } catch (err) {
-      setMessage('Network error');
-    }
-    setLoading(false);
-  };
-
   return (
     <div className="container custom-container mt-5" id="auth-container">
       <h1>Store Pathway Tracker</h1>
@@ -85,11 +64,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLoginSuccess }) => {
           />
         </div>
         <div className="d-grid gap-2 mb-2">
-          <button type="button" id="login-btn" className="btn btn-primary" onClick={handleLogin} disabled={loading}>
+          <button type="submit" id="login-btn" className="btn btn-primary" onClick={handleLogin} disabled={loading}>
             Login
-          </button>
-          <button type="button" id="register-btn" className="btn btn-outline-light" onClick={handleRegister} disabled={loading}>
-            Register
           </button>
         </div>
         <div id="auth-msg" className="form-text text-warning">{message}</div>
