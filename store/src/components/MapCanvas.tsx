@@ -118,7 +118,21 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     ctx.restore();
   }
 
-  const snapToGrid = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
+  const findClosestPoint = (x: number, y: number, points: MapPoint[]): MapPoint | null => {
+    if (!points || points.length === 0) return null;
+    let minDist = Infinity;
+    let closest: MapPoint | null = null;
+    for (const pt of points) {
+      const dx = pt.x - x;
+      const dy = pt.y - y;
+      const dist = dx * dx + dy * dy;
+      if (dist < minDist) {
+        minDist = dist;
+        closest = pt;
+      }
+    }
+    return closest;
+  };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 1 || e.ctrlKey) {
@@ -129,8 +143,10 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x) / zoom;
     const y = (e.clientY - rect.top - offset.y) / zoom;
-    // Snap to grid
-    start.current = { x: snapToGrid(x), y: snapToGrid(y) };
+    // Find closest cell
+    const closest = findClosestPoint(x, y, points);
+    if (!closest) return;
+    start.current = { x: closest.x, y: closest.y };
     drawing.current = true;
   };
 
@@ -143,20 +159,27 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x) / zoom;
     const y = (e.clientY - rect.top - offset.y) / zoom;
-    // Snap to grid
-    const snappedX = snapToGrid(x);
-    const snappedY = snapToGrid(y);
+    // Find closest cell
+    const closest = findClosestPoint(x, y, points);
+    if (!closest) {
+      drawing.current = false;
+      start.current = null;
+      return;
+    }
     // Convert to grid numbers
     const start_grid_x = Math.round(start.current.x / GRID_SIZE);
     const start_grid_y = Math.round(start.current.y / GRID_SIZE);
-    const end_grid_x = Math.round(snappedX / GRID_SIZE);
-    const end_grid_y = Math.round(snappedY / GRID_SIZE);
-    onArrowDraw({
-      start_x: start_grid_x,
-      start_y: start_grid_y,
-      end_x: end_grid_x,
-      end_y: end_grid_y,
-    });
+    const end_grid_x = Math.round(closest.x / GRID_SIZE);
+    const end_grid_y = Math.round(closest.y / GRID_SIZE);
+    // Only allow if both start and end are valid points and not the same
+    if ((start_grid_x !== end_grid_x || start_grid_y !== end_grid_y)) {
+      onArrowDraw({
+        start_x: start_grid_x,
+        start_y: start_grid_y,
+        end_x: end_grid_x,
+        end_y: end_grid_y,
+      });
+    }
     drawing.current = false;
     start.current = null;
   };
@@ -179,6 +202,64 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     });
   };
 
+  // Touch event helpers
+  const getTouchPos = (touch: Touch, rect: DOMRect) => {
+    return {
+      x: (touch.clientX - rect.left - offset.x) / zoom,
+      y: (touch.clientY - rect.top - offset.y) / zoom
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length !== 1) return; // Only single touch to draw
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0] as unknown as Touch;
+    const { x, y } = getTouchPos(touch, rect);
+    // Find closest cell
+    const closest = findClosestPoint(x, y, points);
+    if (!closest) return;
+    start.current = { x: closest.x, y: closest.y };
+    drawing.current = true;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!drawing.current || !start.current) return;
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    // Use changedTouches if available, else last known position
+    const touch = (e.changedTouches[0] || e.touches[0]) as unknown as Touch;
+    if (!touch) return;
+    const { x, y } = getTouchPos(touch, rect);
+    // Find closest cell
+    const closest = findClosestPoint(x, y, points);
+    if (!closest) {
+      drawing.current = false;
+      start.current = null;
+      return;
+    }
+    const start_grid_x = Math.round(start.current.x / GRID_SIZE);
+    const start_grid_y = Math.round(start.current.y / GRID_SIZE);
+    const end_grid_x = Math.round(closest.x / GRID_SIZE);
+    const end_grid_y = Math.round(closest.y / GRID_SIZE);
+    if ((start_grid_x !== end_grid_x || start_grid_y !== end_grid_y)) {
+      onArrowDraw({
+        start_x: start_grid_x,
+        start_y: start_grid_y,
+        end_x: end_grid_x,
+        end_y: end_grid_y,
+      });
+    }
+    drawing.current = false;
+    start.current = null;
+  };
+
+  // Prevent scrolling while drawing
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (drawing.current) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: 900, height: 600 }}>
       <canvas
@@ -190,6 +271,9 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
       />
       <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button className="btn btn-light btn-sm" onClick={() => setZoom(z => Math.min(5, z * 1.1))}>+</button>
