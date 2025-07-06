@@ -20,11 +20,11 @@ function App() {
 
   return (
     <div className="App">
-      <Sidebar onLogout={handleLogout} />
       {!token ? (
         <AuthForm onLoginSuccess={setToken} />
       ) : (
         <>
+          <Sidebar onLogout={handleLogout} />
           <SessionContainer token={token} onLogout={handleLogout} />
           <div style={{ marginTop: 32 }}>
             <MapCanvas
