@@ -7,6 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+app.use(express.static('public'))
 
 // Mount API routes under /api
 app.use('/api', apiRouter);

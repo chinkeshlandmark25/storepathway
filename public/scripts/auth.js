@@ -8,8 +8,16 @@ export async function login() {
     const data = await res.json();
     if (data.token) {
         localStorage.setItem('jwt_token', data.token);
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('session-container').style.display = 'flex';
+        // SPA navigation instead of direct DOM manipulation
+        if (window.page) {
+            window.page('/session');
+        } else {
+            // fallback: hide auth, show session if elements exist
+            const authCont = document.getElementById('auth-container');
+            if (authCont) authCont.style.display = 'none';
+            const sessCont = document.getElementById('session-container');
+            if (sessCont) sessCont.style.display = 'flex';
+        }
     } else showMsg('auth-msg', data.error || 'Login failed');
 }
 

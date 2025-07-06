@@ -1,0 +1,59 @@
+<div class="container custom-container mt-5" id="session-container" style="display:none; flex-direction:column; align-items:center;">
+    <h2>Session</h2>
+    <div class="d-grid gap-2 mb-3" style="max-width: 300px; margin: 0 auto; display: flex; flex-direction: row; gap: 1rem;">
+        <button id="start-session-btn" class="btn btn-success">Start New Session</button>
+        <button id="configure-map-btn" class="btn btn-warning" style="display:none;"><i class="bi bi-gear"></i> Configure Map</button>
+    </div>
+    <!-- Questionnaire Modal -->
+    <div class="modal fade" id="questionnaireModal" tabindex="-1" aria-labelledby="questionnaireModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+          <div class="modal-header">
+            <h5 class="modal-title" id="questionnaireModalLabel">Session Questionnaire</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="questionnaire-form">
+              <div class="mb-3">
+                <label for="customer_entry" class="form-label">Customer Entry</label>
+                <select class="form-select" id="customer_entry" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="customer_segment" class="form-label">Customer Segment</label>
+                <select class="form-select" id="customer_segment" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="nationality" class="form-label">Nationality</label>
+                <select class="form-select" id="nationality" required></select>
+              </div>
+              <div id="questionnaire-msg" class="form-text text-warning"></div>
+              <button type="submit" class="btn btn-primary w-100">Submit</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Questionnaire Modal -->
+    <div id="map-section" style="display:none;">
+        <div id="map-controls" class="me-4">
+            <button id="finish-session-btn" class="btn btn-danger mb-3">Finish Session</button>
+            <div id="session-msg" class="form-text text-info"></div>
+        </div>
+        <div class="border rounded bg-light bg-opacity-10 p-2">
+            <canvas id="map-canvas" width="900" height="600" style="border:1px solid #fff;"></canvas>
+        </div>
+    </div>
+    <!-- Configure Map Section -->
+    <div id="configure-map-section" style="display:none; flex-direction:row; align-items:flex-start; gap:2rem;">
+        <div class="border rounded bg-light bg-opacity-10 p-2">
+            <canvas id="configure-map-canvas" width="900" height="600" style="border:1px solid #fff;"></canvas>
+        </div>
+        <div class="d-flex flex-column align-items-center gap-3" style="min-width:80px;">
+            <button id="config-back-btn" class="btn btn-secondary" title="Back"><i class="bi bi-arrow-left"></i></button>
+            <button id="config-save-btn" class="btn btn-success" title="Save"><i class="bi bi-save"></i></button>
+            <button id="config-add-btn" class="btn btn-primary" title="Add Cells"><i class="bi bi-plus-lg"></i></button>
+            <button id="config-remove-btn" class="btn btn-danger" title="Remove Cells"><i class="bi bi-x-lg"></i></button>
+            <div id="config-msg" class="form-text text-info"></div>
+        </div>
+    </div>
+</div>

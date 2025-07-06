@@ -1,4 +1,3 @@
-// Map and session logic
 import { showMsg } from './auth.js';
 
 let sessionId = null;
@@ -114,59 +113,21 @@ function setupCanvasArrowDrawing() {
         currentMouse = null;
         drawMap();
     };
-    // Touch events
-    canvas.ontouchstart = function(e) {
-        if (e.touches.length !== 1) return;
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        arrowStart = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-        currentMouse = { ...arrowStart };
-        e.preventDefault();
-    };
-    canvas.ontouchmove = function(e) {
-        if (!arrowStart || e.touches.length !== 1) return;
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        currentMouse = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-        drawMap();
-        e.preventDefault();
-    };
-    canvas.ontouchend = function(e) {
-        if (!arrowStart) return;
-        const rect = canvas.getBoundingClientRect();
-        // Use changedTouches for end position
-        const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
-        if (touch) {
-            const end = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-            arrows.push({ start_x: arrowStart.x, start_y: arrowStart.y, end_x: end.x, end_y: end.y });
-        }
-        arrowStart = null;
-        currentMouse = null;
-        drawMap();
-        e.preventDefault();
-    };
-    canvas.ontouchcancel = function() {
-        arrowStart = null;
-        currentMouse = null;
-        drawMap();
-    };
 }
 
-async function finishSession() {
-    if (!sessionId || arrows.length === 0) return showMsg('session-msg','Draw at least one arrow!');
-    // Save arrows
+export async function finishSession() {
+    if (!sessionId) return;
     const token = localStorage.getItem('jwt_token');
-    await fetch(`/api/sessions/${sessionId}/arrows`, {
-        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body: JSON.stringify({arrows})
-    });
-    // Set checkout time
     const checkoutTime = new Date().toISOString();
-    await fetch(`/api/sessions/${sessionId}/finish`, {
-        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-        body: JSON.stringify({checkout_time: checkoutTime})
+    const res = await fetch(`/api/sessions/${sessionId}/finish`, {
+        method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify({checkout_time: checkoutTime, arrows})
     });
-    showMsg('session-msg','Session saved!');
-    document.getElementById('map-section').style.display = 'none';
-    document.getElementById('start-session-btn').style.display = 'block';
+    if (res.ok) {
+        showMsg('session-msg', 'Session finished!');
+        document.getElementById('map-section').style.display = 'none';
+        document.getElementById('start-session-btn').style.display = '';
+    } else {
+        showMsg('session-msg', 'Could not finish session');
+    }
 }
