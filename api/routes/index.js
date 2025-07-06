@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { CellType, CustomerEntry, CustomerSegmentation, Nationality, Role } = require('../../enums');
+const { CellType, CustomerEntry, CustomerSegmentation, Nationality, Role } = require('../enums');
 const pool = require('../db/connect_postgres');
 
 const apiRouter = express.Router();
