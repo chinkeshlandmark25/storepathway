@@ -19,11 +19,7 @@ COPY . .
 WORKDIR /app/store
 RUN npm run build
 
-# Install concurrently to run both apps
 WORKDIR /app
-RUN npm install -g concurrently
-
-EXPOSE 3000
 EXPOSE 8080
 
-CMD concurrently "cd store && npm start" "node server.js"
+CMD ["node", "server.js"]
