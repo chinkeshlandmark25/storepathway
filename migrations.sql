@@ -51,3 +51,8 @@ CREATE TABLE IF NOT EXISTS session_arrows (
     end_y INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+DROP TABLE IF EXISTS session_cells;
+
+ALTER TABLE map_configurations ADD COLUMN IF NOT EXISTS metadata JSONB;
+
