@@ -54,6 +54,13 @@ const CellType = Object.freeze({
   EXIT_GATE: 'EXIT_GATE',
 });
 
+// Add type for fixture interaction
+interface FixtureInteraction {
+  cell_x: number;
+  cell_y: number;
+  sequence_number: number;
+}
+
 const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession, sessionId, showQuestionnaire, showMap, arrows, setArrows, msg, setMsg, loading, setLoading, setShowQuestionnaire, setShowMap, setSessionId }) => {
   const [questionnaire, setQuestionnaire] = useState<Questionnaire>({
     customer_entry: '',
@@ -62,6 +69,7 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
   });
   const [fabOpen, setFabOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [fixtureInteractions, setFixtureInteractions] = useState<FixtureInteraction[]>([]);
   const userName = useMemo(() => getNameFromToken(token), [token]);
   // Update points type to include config_type
   const [points, setPoints] = useState<Array<{ x: number; y: number; config_type: string }>>([]);
@@ -126,25 +134,55 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
     setArrows(prev => [...prev, arrow]);
   };
 
+  // Handler for clicking a fixture cell only
+  const handleCellClick = (cell: { x: number; y: number }) => {
+    // Only handle clicks if the cell is a fixture
+    const cellPoint = points.find(pt =>
+      pt.config_type === CellType.FIXTURE &&
+      Math.round(pt.x / 10) === cell.x &&
+      Math.round(pt.y / 10) === cell.y
+    );
+    if (!cellPoint) return; // Ignore non-fixture cells
+    setFixtureInteractions(prev => [
+      ...prev,
+      { cell_x: cell.x, cell_y: cell.y, sequence_number: prev.length + 1 }
+    ]);
+    setMsg(`Marked interaction with fixture at (${cell.x}, ${cell.y})`);
+  };
+
   const handleFinishSession = async () => {
     if (!sessionId) return;
     setLoading(true);
     setMsg('');
     try {
+      // Save arrows
       const res = await fetch(`${process.env.REACT_APP_API_BASE || '/api'}/sessions/${sessionId}/arrows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ arrows })
       });
-      if (res.ok) {
+      // Save fixture interactions
+      let fixtureRes: Response | null = null;
+      if (fixtureInteractions.length > 0) {
+        fixtureRes = await fetch(`${process.env.REACT_APP_API_BASE || '/api'}/sessions/${sessionId}/fixtures`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ interactions: fixtureInteractions })
+        });
+      }
+      const fixtureOk = fixtureRes ? fixtureRes.ok : true;
+      if (res.ok && fixtureOk) {
         setMsg('Session finished!');
         setSessionId(null);
         setShowMap(false);
         setShowQuestionnaire(false);
         setArrows([]);
+        setFixtureInteractions([]);
       } else {
-        const err = await res.json();
-        console.log(err);
+        let err;
+        if (!res.ok) err = await res.json();
+        else if (fixtureRes) err = await fixtureRes.json();
+        else err = { error: 'Could not finish session.' };
         setMsg(err.error || 'Could not finish session.');
       }
     } catch (err) {
@@ -152,6 +190,9 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
     }
     setLoading(false);
   };
+
+  // Pass interacted fixture info to MapCanvas
+  const interactedCells = fixtureInteractions.map(i => `${i.cell_x},${i.cell_y}`);
 
   return (
     <div id="session-container" style={{ width: '100vw', height: '100vh', background: '#181818', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -265,6 +306,8 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
               backgroundImage={process.env.PUBLIC_URL + '/store.jpg'}
               points={points}
               showGrid={showGrid}
+              onCellClick={handleCellClick}
+              interactedCells={interactedCells}
             />
           </div>
         </>

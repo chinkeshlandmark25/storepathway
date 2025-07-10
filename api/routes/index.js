@@ -158,6 +158,22 @@ apiRouter.post('/sessions/:sessionId/arrows', authenticateToken, async (req, res
     }
 });
 
+// Save fixture interactions for a session
+apiRouter.post('/sessions/:sessionId/fixtures', authenticateToken, async (req, res) => {
+    const { interactions } = req.body; // [{cell_x, cell_y, sequence_number}]
+    const { sessionId } = req.params;
+    if (!Array.isArray(interactions) || interactions.length === 0) return res.status(400).json({ error: 'No interactions provided' });
+    const values = interactions.map(i => `(${sessionId}, ${i.cell_x}, ${i.cell_y}, ${i.sequence_number})`).join(',');
+    try {
+        await pool.query(
+            `INSERT INTO interactions (session_id, cell_x, cell_y, sequence_number) VALUES ${values}`
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
 // Finish session (set checkout time)
 apiRouter.post('/sessions/:sessionId/finish', authenticateToken, async (req, res) => {
     const { checkout_time } = req.body;

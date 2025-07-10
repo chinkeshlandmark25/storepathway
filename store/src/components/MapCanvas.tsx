@@ -21,6 +21,7 @@ interface MapCanvasProps {
   showGrid?: boolean;
   pulseCell?: { x: number; y: number } | null;
   onCellClick?: (cell: { x: number; y: number }) => void;
+  interactedCells?: string[];
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -32,7 +33,7 @@ const COLOR_MAP: Record<string, string> = {
 
 const GRID_SIZE = 10; // 900/90 = 10, 600/60 = 10
 
-const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage, points = [], showGrid, pulseCell, onCellClick }) => {
+const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundImage, points = [], showGrid, pulseCell, onCellClick, interactedCells = [] }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -107,17 +108,8 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
         );
       }
       for (const pt of points) {
-        ctx.beginPath();
-        if (pt.config_type === 'FIXTURE') {
-          ctx.rect(pt.x - GRID_SIZE / 2, pt.y - GRID_SIZE / 2, GRID_SIZE, GRID_SIZE);
-        } else {
-          ctx.arc(pt.x, pt.y, GRID_SIZE / 2, 0, 2 * Math.PI);
-        }
-        ctx.fillStyle = COLOR_MAP[pt.config_type] || '#fff';
-        ctx.fill();
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 2 / zoom;
-        ctx.stroke();
+        const interacted = interactedCells.includes(`${Math.round(pt.x / GRID_SIZE)},${Math.round(pt.y / GRID_SIZE)}`);
+        drawCellIcon(ctx, pt.x, pt.y, pt.config_type, interacted, GRID_SIZE);
       }
       // Draw pulse if pulseCell is set
       if (pulseCell) {
@@ -137,7 +129,7 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       }
       ctx.restore();
     };
-  }, [arrows, backgroundImage, zoom, offset, points, showGrid, pulseCell]);
+  }, [arrows, backgroundImage, zoom, offset, points, showGrid, pulseCell, interactedCells]);
 
   function drawArrowhead(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
     const angle = Math.atan2(y1 - y0, x1 - x0);
@@ -304,6 +296,52 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
       onCellClick({ x: cell_x, y: cell_y });
     }
   };
+
+  // Icon factory for cell types and interaction
+  function drawCellIcon(ctx: CanvasRenderingContext2D, x: number, y: number, type: string, interacted: boolean, gridSize: number) {
+    ctx.save();
+    if (type === 'FIXTURE') {
+      ctx.beginPath();
+      ctx.rect(x - gridSize / 2, y - gridSize / 2, gridSize, gridSize);
+      ctx.fillStyle = interacted ? '#FFA500' : '#ff4136'; // orange if interacted, else red
+      ctx.fill();
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Optionally, draw a star or icon overlay for interaction
+      if (interacted) {
+        ctx.beginPath();
+        ctx.arc(x, y, gridSize / 4, 0, 2 * Math.PI);
+        ctx.fillStyle = '#FFD700'; // gold
+        ctx.fill();
+      }
+    } else if (type === 'TURNING_POINT') {
+      ctx.beginPath();
+      ctx.arc(x, y, gridSize / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = '#0074D9';
+      ctx.fill();
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (type === 'ENTRY_GATE') {
+      ctx.beginPath();
+      ctx.arc(x, y, gridSize / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = '#2ECC40';
+      ctx.fill();
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (type === 'EXIT_GATE') {
+      ctx.beginPath();
+      ctx.arc(x, y, gridSize / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FFDC00';
+      ctx.fill();
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   return (
     <div style={{ position: 'relative', width: 900, height: 600, display: 'flex', alignItems: 'flex-start', gap: 16 }}>
