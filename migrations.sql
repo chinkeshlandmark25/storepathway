@@ -56,3 +56,12 @@ DROP TABLE IF EXISTS session_cells;
 
 ALTER TABLE map_configurations ADD COLUMN IF NOT EXISTS metadata JSONB;
 
+-- Table for storing interactions with fixtures in sessions
+CREATE TABLE IF NOT EXISTS interactions (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+    cell_x INTEGER NOT NULL,
+    cell_y INTEGER NOT NULL,
+    sequence_number INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
