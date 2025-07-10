@@ -143,11 +143,20 @@ const SessionContainer: React.FC<SessionContainerProps> = ({ token, startSession
       Math.round(pt.y / 10) === cell.y
     );
     if (!cellPoint) return; // Ignore non-fixture cells
-    setFixtureInteractions(prev => [
-      ...prev,
-      { cell_x: cell.x, cell_y: cell.y, sequence_number: prev.length + 1 }
-    ]);
-    setMsg(`Marked interaction with fixture at (${cell.x}, ${cell.y})`);
+    setFixtureInteractions(prev => {
+      const idx = prev.findIndex(i => i.cell_x === cell.x && i.cell_y === cell.y);
+      if (idx !== -1) {
+        // Remove interaction (toggle off)
+        const updated = prev.filter((_, i) => i !== idx)
+          .map((item, i) => ({ ...item, sequence_number: i + 1 }));
+        setMsg(`Unmarked interaction with fixture at (${cell.x}, ${cell.y})`);
+        return updated;
+      } else {
+        // Add interaction (toggle on)
+        setMsg(`Marked interaction with fixture at (${cell.x}, ${cell.y})`);
+        return [...prev, { cell_x: cell.x, cell_y: cell.y, sequence_number: prev.length + 1 }];
+      }
+    });
   };
 
   const handleFinishSession = async () => {
