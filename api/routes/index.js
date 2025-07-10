@@ -55,16 +55,36 @@ apiRouter.post('/login', async (req, res) => {
 // --- Superuser Map Configuration APIs ---
 // Bulk add map configurations (superuser only)
 apiRouter.post('/map-configurations', authenticateToken, requireSuperuser, async (req, res) => {
-    const { configs } = req.body; // [{cell_x, cell_y, config_type}, ...]
+    const { configs } = req.body;
     if (!Array.isArray(configs) || configs.length === 0) return res.status(400).json({ error: 'No configs provided' });
     // Validate config_type using enums
     const validTypes = Object.values(CellType);
     const filtered = configs.filter(c => validTypes.includes(c.config_type));
     if (filtered.length !== configs.length) return res.status(400).json({ error: 'Invalid config_type in configs' });
-    const values = filtered.map(c => `(${req.user.userId}, ${c.cell_x}, ${c.cell_y}, '${c.config_type.replace(/'/g, "''")}')`).join(',');
+
+    // Validate and prepare values for insertion
+    const values = [];
+    for (const c of filtered) {
+        if (c.config_type === CellType.FIXTURE) {
+            // Validate metadata for fixture
+            if (!c.metadata || typeof c.metadata !== 'object') {
+                return res.status(400).json({ error: 'Missing metadata for fixture' });
+            }
+            //TODO remove this logging in production
+            console.log('Fixture metadata:', c.metadata);
+            const { groupName, department, class: className } = c.metadata;
+            if (!department || !className || !groupName) {
+                return res.status(400).json({ error: 'Fixture must have group name, department and it\'s class' });
+            }
+            // Optionally: validate against allowed values
+            values.push(`(${req.user.userId}, ${c.cell_x}, ${c.cell_y}, '${c.config_type.replace(/'/g, "''")}', '${JSON.stringify({ groupName, department, class: className }).replace(/'/g, "''")}')`);
+        } else {
+            values.push(`(${req.user.userId}, ${c.cell_x}, ${c.cell_y}, '${c.config_type.replace(/'/g, "''")}', NULL)`);
+        }
+    }
     try {
         const result = await pool.query(
-            `INSERT INTO map_configurations (created_by, cell_x, cell_y, config_type) VALUES ${values} RETURNING config_type`
+            `INSERT INTO map_configurations (created_by, cell_x, cell_y, config_type, metadata) VALUES ${values.join(',')} RETURNING config_type`
         );
         const types = result.rows.map(r => r.config_type);
         res.json({ inserted: result.rowCount, types });

@@ -44,6 +44,24 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Add non-passive wheel event listener
+    const handleWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const scale = e.deltaY < 0 ? 1.1 : 0.9;
+      setZoom(z => {
+        const newZoom = z * scale;
+        return Math.max(1, Math.min(5, newZoom));
+      });
+    };
+    canvas.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleWheelNative);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const img = new window.Image();
@@ -211,13 +229,9 @@ const MapCanvas: React.FC<MapCanvasProps> = ({ arrows, onArrowDraw, backgroundIm
     }
   };
 
+  // Remove preventDefault from React's onWheel handler
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const scale = e.deltaY < 0 ? 1.1 : 0.9;
-    setZoom(z => {
-      const newZoom = z * scale;
-      return Math.max(1, Math.min(5, newZoom));
-    });
+    // No-op, handled natively
   };
 
   // Touch event helpers

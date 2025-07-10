@@ -6,6 +6,7 @@ interface MapPoint {
   cell_y: number;
   config_type: string;
   id?: number;
+  metadata?: { groupName:string; department: string; class: string; };
 }
 
 const API_BASE = process.env.REACT_APP_API_BASE || '/api';
@@ -15,6 +16,39 @@ const CELL_TYPES = [
   'ENTRY_GATE',
   'EXIT_GATE',
 ];
+
+// Parse the CSV structure for group -> department -> class
+const GROUP_DEPT_CLASS: Record<string, Record<string, string[]>> = {
+  "Furniture": {
+    "Bedroom": ["Bed Sets", "Bedroom Storage", "Beds", "Mattresses", "Wardrobes"],
+    "Dining": ["Serving & Storage", "Tables & Chairs"],
+    "Living": ["HOSO", "Living Case Goods", "Outdoor"],
+    "Sofas & Tables": ["CT / ET", "Fabric Sofas", "Individual Sofas", "Modular Sofas", "Non-Fabric Sofas", "Recliners"]
+  },
+  "House Hold": {
+    "Bathroom": ["Bath Accessories", "Bath Textiles", "Shower"],
+    "Cash Tills": ["Cash Tills"],
+    "Festive": ["Christmas", "Festivals"],
+    "Floor Covering": ["Floor Accessories", "Rugs"],
+    "Home Decor": ["Decor Accessories", "Home Fragrance", "Indoor Garden"],
+    "Kitchen": ["Cookware", "Kitchen Linen", "Kitchen Storage", "Kitchenwares"],
+    "Lighting": ["Core Electrical", "Lamps", "Lights"],
+    "Soft Furnishing": ["Bed Linen", "Bed Protection", "Cushions", "Duvets & Pillows", "Throws & Blankets", "Window Treatments"],
+    "Tabletop": ["Dinnerware", "Drinkware", "Flatware", "Outdoor Dining", "Serve", "Table Linen"],
+    "Utility & Storage": ["Cleaning", "Laundry", "Storage"],
+    "Wall Decor": ["Clocks", "Mirrors", "Photo Frames", "Wall Art"]
+  },
+  "Kids": {
+    "Cash Tills": ["Cash Tills"],
+    "Festive": ["Festivals"],
+    "Kids Furniture": ["Kids Beds", "Mattresses", "Nursery", "Room Furniture & Storage"],
+    "Room Decor": ["Decorative", "Floor Covering", "Lighting"],
+    "Soft Furnishing": ["Bed Linen", "Window Treatments"],
+    "Toys & Activities": ["Activities", "Kids Toys"],
+    "Utility & Storage": ["Bath", "Eat & Drink", "Luggage", "Safety", "Storage"]
+  }
+};
+const GROUP_NAMES = Object.keys(GROUP_DEPT_CLASS);
 
 function getRoleFromToken(token: string): string | null {
   try {
@@ -37,6 +71,7 @@ const ConfigureMap: React.FC<{ token: string }> = ({ token }) => {
     cell_y: '',
     config_type: CELL_TYPES[0]
   });
+  const [fixtureMeta, setFixtureMeta] = useState({ groupName: '', department: '', class: '' });
   const [pulseCell, setPulseCell] = useState<{ x: number; y: number } | null>(null);
   const isSuperuser = useMemo(() => getRoleFromToken(token) === 'SUPERUSER', [token]);
 
@@ -88,7 +123,22 @@ const ConfigureMap: React.FC<{ token: string }> = ({ token }) => {
       setToast('Point already exists.');
       return;
     }
-    setNewPoints(prev => [...prev, { cell_x, cell_y, config_type: addForm.config_type }]);
+    if (addForm.config_type === 'FIXTURE') {
+      if (!fixtureMeta.groupName || !fixtureMeta.department || !fixtureMeta.class) {
+        setToast('Please select group, department, and class for fixture.');
+        return;
+      }
+      // Validate that the selected department and class are valid for the group
+      if (!GROUP_DEPT_CLASS[fixtureMeta.groupName][fixtureMeta.department] ||
+          !GROUP_DEPT_CLASS[fixtureMeta.groupName][fixtureMeta.department].includes(fixtureMeta.class)) {
+        setToast('Invalid department or class selection.');
+        return;
+      }
+      setNewPoints(prev => [...prev, { cell_x, cell_y, config_type: addForm.config_type, metadata: { ...fixtureMeta } }]);
+      setFixtureMeta({ groupName: '', department: '', class: '' });
+    } else {
+      setNewPoints(prev => [...prev, { cell_x, cell_y, config_type: addForm.config_type }]);
+    }
     setAddForm({ cell_x: '', cell_y: '', config_type: CELL_TYPES[0] });
   };
 
@@ -199,6 +249,33 @@ const ConfigureMap: React.FC<{ token: string }> = ({ token }) => {
             {CELL_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>
+        {addForm.config_type === 'FIXTURE' && (
+          <div className="col-12">
+            <div className="row g-2">
+              <div className="col">
+                <label className="form-label">Group Name</label>
+                <select className="form-select" value={fixtureMeta.groupName} onChange={e => setFixtureMeta(f => ({ groupName: e.target.value, department: '', class: '' }))} required>
+                  <option value="">Select</option>
+                  {GROUP_NAMES.map(gpName => <option key={gpName} value={gpName}>{gpName}</option>)}
+                </select>
+              </div>
+              <div className="col">
+                <label className="form-label">Department</label>
+                <select className="form-select" value={fixtureMeta.department} onChange={e => setFixtureMeta(f => ({ ...f, department: e.target.value, class: '' }))} required disabled={!fixtureMeta.groupName}>
+                  <option value="">Select</option>
+                  {fixtureMeta.groupName && Object.keys(GROUP_DEPT_CLASS[fixtureMeta.groupName] || {}).map(dep => <option key={dep} value={dep}>{dep}</option>)}
+                </select>
+              </div>
+              <div className="col">
+                <label className="form-label">Class</label>
+                <select className="form-select" value={fixtureMeta.class} onChange={e => setFixtureMeta(f => ({ ...f, class: e.target.value }))} required disabled={!fixtureMeta.department}>
+                  <option value="">Select</option>
+                  {fixtureMeta.groupName && fixtureMeta.department && (GROUP_DEPT_CLASS[fixtureMeta.groupName][fixtureMeta.department] || []).map(cls => <option key={cls} value={cls}>{cls}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="col-auto">
           <button type="submit" className="btn btn-primary">Add Point</button>
         </div>
@@ -227,6 +304,9 @@ const ConfigureMap: React.FC<{ token: string }> = ({ token }) => {
               className="list-group-item list-group-item-dark d-flex justify-content-between align-items-center"
             >
               ({pt.cell_x}, {pt.cell_y}) - {pt.config_type} <span className="badge bg-secondary">id: {pt.id}</span>
+              {pt.config_type === 'FIXTURE' && pt.metadata && (
+                <span className="ms-2 small text-info">{JSON.stringify(pt.metadata)}</span>
+              )}
               <button className="btn btn-sm btn-danger ms-2" onClick={() => handleDeletePoint(pt.id)} title="Delete"><i className="bi bi-trash"></i></button>
             </li>
           ))}
@@ -236,6 +316,9 @@ const ConfigureMap: React.FC<{ token: string }> = ({ token }) => {
               className="list-group-item list-group-item-info d-flex justify-content-between align-items-center"
             >
               ({pt.cell_x}, {pt.cell_y}) - {pt.config_type} <span className="badge bg-info">new</span>
+              {pt.config_type === 'FIXTURE' && pt.metadata && (
+                <span className="ms-2 small text-info">{JSON.stringify(pt.metadata)}</span>
+              )}
               <button className="btn btn-sm btn-danger ms-2" onClick={() => handleDeletePoint(undefined, idx)} title="Delete"><i className="bi bi-trash"></i></button>
             </li>
           ))}
